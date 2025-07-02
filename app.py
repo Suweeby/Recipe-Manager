@@ -3,12 +3,33 @@ from flask_cors import CORS
 import json
 import os
 from datetime import datetime
+from langchain_ollama.llms import OllamaLLM
+from langchain_core.prompts import ChatPromptTemplate
+from vector import retriever
 
 app = Flask(__name__)
 CORS(app)  # Allow requests from Streamlit
 
 # File to store recipes
 DATA_FILE = 'recipes.json'
+
+model = OllamaLLM(model="llama3.2")
+template = """
+You are a helpful cooking assistant. Based on the following recipe information retrieved from a database, answer the user's question or provide helpful cooking suggestions.
+
+Context:
+{context}
+
+Question:
+{question}
+
+Answer in a friendly, concise, and helpful manner. If the information is not directly available, provide your best cooking suggestion using general knowledge, but mention that it’s not directly found in the recipes.
+
+"""
+
+prompt = ChatPromptTemplate.from_template(template=template)
+
+chain = prompt | model
 
 def load_recipes():
     """Load recipes from JSON file"""
@@ -246,6 +267,24 @@ def toggle_favorite(recipe_id):
         save_recipes(recipes)
         return jsonify({"message": "Favorite status updated"})
         
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/chatbot", methods=["POST"])
+def chatbot():
+    try:
+        data = request.get_json()
+        user_input = data.get("message", "")
+
+        if not user_input:
+            return jsonify({"error": "Missing user input"}), 400
+
+        # Call the LLM chain
+        context = retriever.invoke(user_input)
+        response = chain.invoke({"context": context, "question": user_input})
+        
+        return jsonify({"response": response})  # or just response["result"]
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

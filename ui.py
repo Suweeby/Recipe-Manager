@@ -7,11 +7,40 @@ import re
 # API base URL
 API_URL = "http://localhost:5000"
 
+# === CHATBOT INITIALIZATION (ADDED) ===
+# Initialize session state for chat messages
+if "chat_messages" not in st.session_state:
+    st.session_state.chat_messages = []
+
+def send_message_to_chatbot(message: str) -> str:
+    """Send message to Flask chatbot endpoint and return response"""
+    try:
+        response = requests.post(
+            f"{API_URL}/chatbot",
+            json={"message": message},
+            headers={"Content-Type": "application/json"},
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("response", "Sorry, I couldn't process that.")
+        else:
+            return f"Error: {response.status_code} - {response.text}"
+            
+    except requests.exceptions.RequestException as e:
+        return f"Connection error: {str(e)}"
+# === END CHATBOT INITIALIZATION ===
+
 st.set_page_config(
     page_title="Recipe Manager",
     page_icon="🍳",
     layout="wide"
 )
+
+# === CHATBOT CSS STYLES (REMOVED - NO LONGER NEEDED) ===
+# Removed floating chat CSS since we're using a regular subheading now
+# === END CHATBOT CSS ===
 
 def extract_youtube_id(url):
     """Extract YouTube video ID from URL"""
@@ -377,3 +406,45 @@ if recipes:
         )
 
 st.markdown("---")
+
+# === CHATBOT INTEGRATION (ADDED) ===
+st.subheader("🤖 Recipe Assistant")
+st.markdown("*Ask me anything about cooking, recipes, or ingredients!*")
+
+# Chat interface
+if not st.session_state.chat_messages:
+    st.info("👋 Hi! I'm your Recipe Assistant. Ask me about cooking tips, recipe suggestions, or anything food-related!")
+
+# Display chat messages
+for message in st.session_state.chat_messages:
+    if message["role"] == "user":
+        with st.chat_message("user"):
+            st.write(message["content"])
+    else:
+        with st.chat_message("assistant"):
+            st.write(message["content"])
+
+# Chat input
+if prompt := st.chat_input("Ask about recipes, cooking tips, ingredients..."):
+    # Add user message to chat
+    st.session_state.chat_messages.append({"role": "user", "content": prompt})
+    
+    # Display user message
+    with st.chat_message("user"):
+        st.write(prompt)
+    
+    # Get and display bot response
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            bot_response = send_message_to_chatbot(prompt)
+        st.write(bot_response)
+    
+    # Add bot response to chat history
+    st.session_state.chat_messages.append({"role": "assistant", "content": bot_response})
+
+# Clear chat button
+if st.session_state.chat_messages:
+    if st.button("🗑️ Clear Chat History"):
+        st.session_state.chat_messages = []
+        st.rerun()
+# === END CHATBOT INTEGRATION ===

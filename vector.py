@@ -24,7 +24,6 @@ if add_docs:
             f"Difficulty: {recipe['difficulty']}\n"
             f"Ingredients:{ingredients_str}\n"
             f"Instructions:\n{recipe['instructions']}\n"
-            f"Category: {recipe["category"]}"
         )
         document = Document(
             page_content=content,
